@@ -2,7 +2,9 @@
 
 Every morning at 07:00 WIB a Google Doc "Ringkasan WA <date>" appears in the Drive folder
 **WA Summary**: a 7-day summary of personal and group chats, draft replies and greetings in
-your own chat style, work follow-ups, and a work plan. Nothing is ever sent automatically.
+your own chat style, work follow-ups, and a work plan. Nothing is sent without approval: you reply in the summary's project thread (e.g. "kirim 1,2,5"),
+the approved drafts are written to `WA Summary/outbox/approved`, and the laptop sends them within
+5 minutes, ordered urgent+important, urgent, important, normal, 30-60 seconds apart.
 For a contact you have never replied to, there is no draft: the Doc summarizes the chat and asks
 you how you want to answer.
 
@@ -11,6 +13,8 @@ you how you want to answer.
 1. **Bridge** (`whatsapp-bridge`) runs on your laptop (later a VPS) and stores messages in SQLite.
 2. **06:45 WIB** `run_daily.sh` runs `export_daily.py`, which writes `wa-export-<date>.md`
    (last 7 days + samples of your own sent messages for style) into `WA Summary/exports` on Drive.
+4. **Every 5 minutes** `send_approved.py` sends only the replies in `outbox/approved/*.json`
+   (each id at most once, tracked in `whatsapp-bridge/store/sent-ledger.json`) and writes results to `outbox/sent`.
 3. **07:00 WIB** a scheduled Claude routine reads the export and writes the summary Doc
    (prompt: `ROUTINE_PROMPT.md`).
 
