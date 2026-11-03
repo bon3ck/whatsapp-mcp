@@ -2,11 +2,14 @@
 #   1. "WhatsApp Bridge"  - starts the bridge when you log in and keeps it running.
 #   2. "WhatsApp Export"  - every day 06:45, writes the 7-day export to Google Drive
 #                           (wakes the laptop from sleep if needed).
+#   3. "WhatsApp Send Approved" - every 5 minutes, sends only replies Aguro approved
+#                           (files in "WA Summary\outbox\approved"), 30-60s apart.
 # Run in PowerShell from the repo folder:
 #   powershell -ExecutionPolicy Bypass -File daily-summary\windows\setup_windows.ps1
 param(
     [string]$ExportDir = "G:\My Drive\WA Summary\exports",
-    [string]$ExportTime = "06:45"
+    [string]$ExportTime = "06:45",
+    [string]$OutboxDir = ""
 )
 $ErrorActionPreference = "Stop"
 $Repo = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
@@ -41,5 +44,12 @@ $exportSettings = New-ScheduledTaskSettingsSet -StartWhenAvailable -WakeToRun -A
 Register-ScheduledTask -TaskName "WhatsApp Export" -Action $export `
     -Trigger (New-ScheduledTaskTrigger -Daily -At $ExportTime) -Settings $exportSettings -Force | Out-Null
 
-Write-Host "Done. Tasks 'WhatsApp Bridge' (at logon) and 'WhatsApp Export' (daily $ExportTime) registered."
+if (-not $OutboxDir) { $OutboxDir = Join-Path (Split-Path $ExportDir -Parent) "outbox" }
+$sendArgs = "-3 `"$Repo\whatsapp-mcp-server\send_approved.py`" --outbox `"$OutboxDir`""
+$send = New-ScheduledTaskAction -Execute "py.exe" -Argument $sendArgs -WorkingDirectory $Repo
+$sendTrigger = New-ScheduledTaskTrigger -Once -At (Get-Date).Date -RepetitionInterval (New-TimeSpan -Minutes 5)
+$sendSettings = New-ScheduledTaskSettingsSet -StartWhenAvailable -MultipleInstances IgnoreNew -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
+Register-ScheduledTask -TaskName "WhatsApp Send Approved" -Action $send -Trigger $sendTrigger -Settings $sendSettings -Force | Out-Null
+
+Write-Host "Done. Tasks 'WhatsApp Bridge' (at logon) and 'WhatsApp Export' (daily $ExportTime) registered, plus 'WhatsApp Send Approved' (every 5 min, outbox: $OutboxDir)."
 Write-Host "Start the bridge now with: Start-ScheduledTask 'WhatsApp Bridge'"
