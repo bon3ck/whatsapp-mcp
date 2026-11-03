@@ -53,7 +53,7 @@ enable "Allow wake timers" so the 07:00 trigger can wake it.
 ## Setup on macOS / Linux
 
 1. Run the bridge once and scan the QR code (WhatsApp > Linked devices):
-   `cd whatsapp-bridge && go run main.go`. Keep it running (laptop on, not sleeping, at 06:45).
+   `cd whatsapp-bridge && go run main.go`. Keep it running (laptop on, not sleeping, at 07:00).
 2. Install [Google Drive for desktop](https://www.google.com/drive/download/) and sign in.
 3. Test the export:
    ```bash
