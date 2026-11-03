@@ -27,8 +27,13 @@ $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -WakeToRun -Executi
     -RestartCount 999 -RestartInterval (New-TimeSpan -Minutes 1) -DontStopIfGoingOnBatteries -AllowStartIfOnBatteries
 
 $bridge = New-ScheduledTaskAction -Execute (Join-Path $BridgeDir "whatsapp-bridge.exe") -WorkingDirectory $BridgeDir
+# Start 1 minute after logon so the network is up. The bridge exits with a
+# non-zero code if it cannot connect, so RestartCount/RestartInterval above
+# bring it back.
+$bridgeTrigger = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
+$bridgeTrigger.Delay = "PT1M"
 Register-ScheduledTask -TaskName "WhatsApp Bridge" -Action $bridge `
-    -Trigger (New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME) -Settings $settings -Force | Out-Null
+    -Trigger $bridgeTrigger -Settings $settings -Force | Out-Null
 
 $exportArgs = "-NoProfile -ExecutionPolicy Bypass -File `"$Repo\daily-summary\windows\run_daily.ps1`" -ExportDir `"$ExportDir`""
 $export = New-ScheduledTaskAction -Execute "powershell.exe" -Argument $exportArgs -WorkingDirectory $Repo

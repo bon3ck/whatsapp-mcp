@@ -886,11 +886,12 @@ func main() {
 			return
 		}
 	} else {
-		// Already logged in, just connect
-		err = client.Connect()
-		if err != nil {
-			logger.Errorf("Failed to connect: %v", err)
-			return
+		// Already logged in, just connect. Retry with backoff so the bridge
+		// survives starting before the network is ready (e.g. right after
+		// the laptop wakes from sleep) instead of exiting immediately.
+		if !connectWithRetry(client, logger) {
+			logger.Errorf("Giving up connecting to WhatsApp")
+			os.Exit(1)
 		}
 		connected <- true
 	}
@@ -900,7 +901,7 @@ func main() {
 
 	if !client.IsConnected() {
 		logger.Errorf("Failed to establish stable connection")
-		return
+		os.Exit(1)
 	}
 
 	fmt.Println("\n✓ Connected to WhatsApp! Type 'help' for commands.")
@@ -1345,4 +1346,34 @@ func placeholderWaveform(duration uint32) []byte {
 	}
 
 	return waveform
+}
+
+// connectWithRetry connects an already-paired client, retrying with
+// exponential backoff (5s up to 60s) for about 10 minutes in total.
+func connectWithRetry(client *whatsmeow.Client, logger waLog.Logger) bool {
+	delay := 5 * time.Second
+	deadline := time.Now().Add(10 * time.Minute)
+	for attempt := 1; ; attempt++ {
+		err := client.Connect()
+		if err == nil {
+			time.Sleep(2 * time.Second)
+			if client.IsConnected() {
+				return true
+			}
+			err = fmt.Errorf("connection not stable")
+			client.Disconnect()
+		}
+		if time.Now().Add(delay).After(deadline) {
+			logger.Errorf("Connect attempt %d failed: %v", attempt, err)
+			return false
+		}
+		logger.Warnf("Connect attempt %d failed: %v; retrying in %s", attempt, err, delay)
+		time.Sleep(delay)
+		if delay < time.Minute {
+			delay *= 2
+			if delay > time.Minute {
+				delay = time.Minute
+			}
+		}
+	}
 }
