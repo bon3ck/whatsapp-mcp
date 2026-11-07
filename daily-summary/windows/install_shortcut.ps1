@@ -4,11 +4,18 @@
 # Add -DisableSchedule to switch off the automatic "WhatsApp Bridge" (at logon) and
 # "WhatsApp Export" (daily) tasks, so the bridge only runs when you click the shortcut.
 # Undo with -EnableSchedule. The "WhatsApp Send Approved" task is left alone.
+# Add -InstallSender to register "WhatsApp Send Approved": every 5 minutes it sends the
+# replies Aguro approved (WA Summary\outbox\approved). It runs hidden and does nothing
+# while the bridge is off, so approved replies go out once the shortcut has started it.
+# Everything at once:
+#   powershell -ExecutionPolicy Bypass -File daily-summary\windows\install_shortcut.ps1 -DisableSchedule -InstallSender
 param(
     [string]$ExportDir = "G:\My Drive\WA Summary\exports",
+    [string]$OutboxDir = "",
     [string]$Name = "Update Ringkasan WA",
     [switch]$DisableSchedule,
-    [switch]$EnableSchedule
+    [switch]$EnableSchedule,
+    [switch]$InstallSender
 )
 $ErrorActionPreference = "Stop"
 $Repo = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
@@ -33,4 +40,15 @@ foreach ($t in $tasks) {
     if ($DisableSchedule) { Disable-ScheduledTask -TaskName $t | Out-Null; Write-Host "Jadwal '$t' dimatikan." }
     elseif ($EnableSchedule) { Enable-ScheduledTask -TaskName $t | Out-Null; Write-Host "Jadwal '$t' dinyalakan lagi." }
     else { Write-Host "Jadwal '$t' masih $($task.State). Tambah -DisableSchedule untuk mematikannya." }
+}
+
+if ($InstallSender) {
+    if (-not $OutboxDir) { $OutboxDir = Join-Path (Split-Path $ExportDir -Parent) "outbox" }
+    $sendScript = Join-Path $Repo "whatsapp-mcp-server\send_approved.py"
+    # pyw = windowless Python, so nothing flashes on screen every 5 minutes.
+    $send = New-ScheduledTaskAction -Execute "pyw.exe" -Argument "-3 `"$sendScript`" --outbox `"$OutboxDir`"" -WorkingDirectory $Repo
+    $sendTrigger = New-ScheduledTaskTrigger -Once -At (Get-Date).Date -RepetitionInterval (New-TimeSpan -Minutes 5)
+    $sendSettings = New-ScheduledTaskSettingsSet -StartWhenAvailable -MultipleInstances IgnoreNew -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
+    Register-ScheduledTask -TaskName "WhatsApp Send Approved" -Action $send -Trigger $sendTrigger -Settings $sendSettings -Force | Out-Null
+    Write-Host "Pengirim 'WhatsApp Send Approved' dipasang (tiap 5 menit, outbox: $OutboxDir)."
 }
