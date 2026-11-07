@@ -45,10 +45,16 @@ foreach ($t in $tasks) {
 if ($InstallSender) {
     if (-not $OutboxDir) { $OutboxDir = Join-Path (Split-Path $ExportDir -Parent) "outbox" }
     $sendScript = Join-Path $Repo "whatsapp-mcp-server\send_approved.py"
-    # pyw = windowless Python, so nothing flashes on screen every 5 minutes.
-    $send = New-ScheduledTaskAction -Execute "pyw.exe" -Argument "-3 `"$sendScript`" --outbox `"$OutboxDir`"" -WorkingDirectory $Repo
+    # Task Scheduler cannot start the Microsoft Store "py"/"pyw" aliases (WindowsApps),
+    # so ask Python where it really lives and use pythonw.exe (no window) next to it.
+    $python = (cmd /c "py -3 -c `"import sys; print(sys.executable)`" 2>nul" | Select-Object -Last 1)
+    if (-not $python) { $python = (cmd /c "python -c `"import sys; print(sys.executable)`" 2>nul" | Select-Object -Last 1) }
+    if (-not $python -or -not (Test-Path $python)) { throw "Python tidak ditemukan. Install Python 3 dulu." }
+    $pythonw = Join-Path (Split-Path $python -Parent) "pythonw.exe"
+    if (-not (Test-Path $pythonw)) { $pythonw = $python }
+    $send = New-ScheduledTaskAction -Execute $pythonw -Argument "`"$sendScript`" --outbox `"$OutboxDir`"" -WorkingDirectory $Repo
     $sendTrigger = New-ScheduledTaskTrigger -Once -At (Get-Date).Date -RepetitionInterval (New-TimeSpan -Minutes 5)
     $sendSettings = New-ScheduledTaskSettingsSet -StartWhenAvailable -MultipleInstances IgnoreNew -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
     Register-ScheduledTask -TaskName "WhatsApp Send Approved" -Action $send -Trigger $sendTrigger -Settings $sendSettings -Force | Out-Null
-    Write-Host "Pengirim 'WhatsApp Send Approved' dipasang (tiap 5 menit, outbox: $OutboxDir)."
+    Write-Host "Pengirim 'WhatsApp Send Approved' dipasang (tiap 5 menit, $pythonw, outbox: $OutboxDir)."
 }
