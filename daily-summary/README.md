@@ -39,6 +39,19 @@ you how you want to answer.
 5. Test once: `powershell -ExecutionPolicy Bypass -File daily-summary\windows\run_daily.ps1`, then check
    that `wa-export-<date>.md` appears in Drive under WA Summary/exports.
 
+### Manual mode: one desktop shortcut instead of schedules
+
+If you prefer to update the summary yourself once a day, create the shortcut and switch off the
+automatic bridge/export tasks:
+```powershell
+powershell -ExecutionPolicy Bypass -File daily-summary\windows\install_shortcut.ps1 -DisableSchedule
+```
+Double-click **Update Ringkasan WA** on the desktop. It starts the bridge (minimized), starts
+Google Drive if needed, waits until the bridge is connected and new messages stop coming in
+(1-5 minutes), writes `wa-export-<date>.md` to Drive and shows SELESAI or GAGAL. The bridge keeps
+running afterwards so approved replies can be sent. The cloud routine picks up the export and
+writes the Doc. To go back to the schedules: `install_shortcut.ps1 -EnableSchedule`.
+
 Keep the laptop plugged in overnight. In Control Panel > Power Options > Change advanced settings,
 enable "Allow wake timers" so the 06:45 task can wake it.
 
