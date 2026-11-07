@@ -44,8 +44,11 @@ you how you want to answer.
 If you prefer to update the summary yourself once a day, create the shortcut and switch off the
 automatic bridge/export tasks:
 ```powershell
-powershell -ExecutionPolicy Bypass -File daily-summary\windows\install_shortcut.ps1 -DisableSchedule
+powershell -ExecutionPolicy Bypass -File daily-summary\windows\install_shortcut.ps1 -DisableSchedule -InstallSender
 ```
+`-InstallSender` registers "WhatsApp Send Approved" (every 5 minutes, hidden), which sends the
+replies you approved from `WA Summary\outbox\approved`. While the bridge is off it does nothing,
+so approved replies go out after the next click on the shortcut.
 Double-click **Update Ringkasan WA** on the desktop. It starts the bridge (minimized), starts
 Google Drive if needed, waits until the bridge is connected and new messages stop coming in
 (1-5 minutes), writes `wa-export-<date>.md` to Drive and shows SELESAI or GAGAL. The bridge keeps
